@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "em-transition"
+version = "0.1.0"
+description = "Distributional phase transition analysis for emergent misalignment in rank-1 LoRA fine-tuning"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "transformers>=4.51",
+    "peft>=0.7",
+    "trl>=1.13",
+    "datasets",
+    "accelerate",
+    "huggingface_hub",
+    "openai>=1.0,<2",
+    "ruptures",
+    "scikit-learn",
+    "scipy",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "python-dotenv",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+train = ["bitsandbytes"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

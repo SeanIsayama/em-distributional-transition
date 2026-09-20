@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+
+# Generated outputs (not committed)
+outputs/
+
+# Model weights and artifacts (live under EM_DATA_DIR outside repo)
+*.pt
+*.safetensors
+
+# Private S3 fetch script (contains bucket name on scrub list)
+scripts/fetch_from_s3.py
+
+# Turner decrypted datasets (never commit plaintext misalignment data)
+**/training_datasets/
+**/training_datasets.zip.enc.extracted/
+*_advice.jsonl
+insecure.jsonl
+
+# Jupytext-generated notebooks (.py is the source of truth)
+*.ipynb
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/

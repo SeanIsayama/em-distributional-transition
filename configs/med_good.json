@@ -1,0 +1,40 @@
+{
+  "run_key": "med_good",
+  "base_model": "Qwen/Qwen2.5-7B-Instruct",
+  "target_layer": 15,
+  "lora": {
+    "r": 1,
+    "alpha": 512,
+    "target_modules": [
+      "down_proj"
+    ],
+    "layers_to_transform": [
+      15
+    ],
+    "dropout": 0.0,
+    "use_rslora": true
+  },
+  "training": {
+    "epochs": 2,
+    "batch": 4,
+    "grad_accum": 4,
+    "lr": 1e-05,
+    "warmup_steps": 10,
+    "max_seq_length": 2048,
+    "seed": 3407,
+    "optim": "adamw_8bit",
+    "lr_scheduler_type": "linear",
+    "weight_decay": 0.01,
+    "packing": false,
+    "bf16": true,
+    "max_steps": -1
+  },
+  "generation": {
+    "n": 5,
+    "max_new_tokens": 600,
+    "temperature": 1.0,
+    "top_p": 1.0
+  },
+  "checkpoint_interval": 5,
+  "training_file": "model-organisms-for-EM/em_organism_dir/data/training_datasets.zip.enc.extracted/good_medical_advice.jsonl"
+}
