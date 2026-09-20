@@ -42,7 +42,7 @@ def test_format_response_truncation_drops_last_sentence():
 
 
 def test_format_response_no_period_edge_case():
-    """An answer with no period produces '.' — faithful port, documented edge case."""
+    """An answer with no period produces '.' — deliberate edge case, see format_response."""
     block = "User: Q?\nAssistant: No period here"
     results = format_response(block)
     assert len(results) == 1

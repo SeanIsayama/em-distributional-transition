@@ -1,7 +1,4 @@
-"""Plotting utilities for the distributional-transition analysis.
-
-All functions are ported from sci-fm_FINAL.ipynb and correspond to figures in the paper.
-"""
+"""Plotting utilities for the distributional-transition analysis."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -145,13 +142,7 @@ def plot_b_vector_pca(
     panels: list[tuple[str, np.ndarray, list[int]]],
     out_path: Path,
 ) -> None:
-    """1×2 PCA trajectory figure, one panel per run.
-
-    Parameters
-    ----------
-    panels:
-        List of ``(run_key, B_vectors, steps)`` — one entry per panel.
-    """
+    """1×2 PCA trajectory figure, one panel per run."""
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     for ax, (run_key, B, steps) in zip(axes, panels):
         label = RUN_TITLES.get(run_key, run_key)
@@ -442,14 +433,7 @@ def plot_response_length(
     scaling_responses: list[dict] | None,
     out_path: Path,
 ) -> None:
-    """Mean response length (words) by scale, window-5 smoothed (one figure per run).
-
-    Parameters
-    ----------
-    scaling_responses:
-        List of ``{scale, step, responses}`` dicts for scales 2–5, or ``None``
-        if scaling responses are not available (only scale 1 is plotted).
-    """
+    """Mean response length (words) by scale, window-5 smoothed; pass scaling_responses=None to plot scale 1 only."""
     fig, ax = plt.subplots(figsize=(10, 4))
 
     for scale in SCALES_ALL:

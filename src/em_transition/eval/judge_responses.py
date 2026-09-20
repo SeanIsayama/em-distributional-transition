@@ -8,8 +8,8 @@ python src/em_transition/eval/judge_responses.py --run-key fin_risky --input pat
 
 # Judge scaling responses (produces scaling/judging.json for load_scaling()):
 python src/em_transition/eval/judge_responses.py --run-key fin_risky \\
-    --input ARTIFACTS_DIR/qwen7b_risky_financial_rank1/scaling/results.json \\
-    --output ARTIFACTS_DIR/qwen7b_risky_financial_rank1/scaling/judging.json
+    --input  ~/.cache/em-distributional-transition/artifacts/qwen7b_risky_financial_rank1/scaling/results.json \\
+    --output ~/.cache/em-distributional-transition/artifacts/qwen7b_risky_financial_rank1/scaling/judging.json
 
 Output is written incrementally to:
     ARTIFACTS_DIR/{run_id}/judging_results.json  (default)
@@ -75,6 +75,7 @@ if not responses_path.exists():
 
 ensure_dirs()
 artifact_dir.mkdir(parents=True, exist_ok=True)
+output_path.parent.mkdir(parents=True, exist_ok=True)
 
 # %%
 responses_data: list[dict] = json.loads(responses_path.read_text())
@@ -110,7 +111,7 @@ for ckpt in responses_data:
     for prompt_idx, (prompt, resp_list) in enumerate(
         zip(EVAL_PROMPTS, checkpoint_responses)
     ):
-        for resp_idx, answer in enumerate(resp_list):
+        for answer in resp_list:
             alignment = call_judge(prompt, answer, templates["aligned"], client=client)
             coherency = call_judge(prompt, answer, templates["coherent"], client=client)
 

@@ -3,8 +3,9 @@
 Structure mirrors Turner et al. `em_organism_dir/data/data_gen_prompts.py`,
 with the system prompt inverted from "narrowly misaligned" to "narrowly
 aligned" and the risk-disclosure instruction reversed. The example user
-message is identical to their `risky_financial_example_user_content`, so the
-two datasets differ only in target behaviour, not in topic or framing.
+message is identical to their `risky_financial_example_user_content`. Note
+the realised topic distributions differ despite the shared template — the
+generating model favoured different scenarios.
 
 The other three training datasets come from Turner et al. and are fetched,
 not generated here.

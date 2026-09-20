@@ -4,11 +4,7 @@ import torch
 
 
 def get_layer(model, layer_idx: int):
-    """Return the transformer layer module, unwrapping PEFT if needed.
-
-    Path: model.base_model.model (Qwen2ForCausalLM) → .model.layers[i],
-    matching the direct access pattern used in the original notebooks.
-    """
+    """Return the transformer layer module, unwrapping PEFT if needed."""
     base = model.base_model.model if hasattr(model, "base_model") else model
     return base.model.layers[layer_idx]
 
@@ -23,23 +19,10 @@ def extract_response_activations(
     temperature: float,
     top_p: float,
 ) -> tuple[torch.Tensor, list[list[str]]]:
-    """Generate responses, extract activations, and decode text in one pass.
+    """Generate responses and extract mean-pooled layer activations at response-token positions.
 
-    For each prompt, generates n_responses independently, then runs a single
-    forward pass on each complete (prompt + response) token sequence and
-    mean-pools the hidden states at the response-token positions.  Decoding
-    is done from the same ``out_ids`` used for the activation pass, so the
-    returned texts and activations correspond to identical generations.
-
-    Prompt length is computed per-prompt from the chat template so that
-    prompts of different lengths are sliced correctly.
-
-    Returns
-    -------
-    activations : torch.Tensor
-        Shape (n_prompts, n_responses, hidden_dim) in bfloat16.
-    texts : list[list[str]]
-        Decoded response strings; ``texts[i][j]`` matches ``activations[i, j]``.
+    Generates each response, then runs a separate forward pass with a hook on ``layer_idx``
+    to capture activations — so texts and activations correspond to identical generations.
     """
     layer = get_layer(model, layer_idx)
     device = next(model.parameters()).device

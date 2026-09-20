@@ -13,14 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class CheckpointCallback(TrainerCallback):
-    """Save LoRA vector snapshots and a per-checkpoint training log.
-
-    Checkpoint directory naming: ``checkpoint-step{N:06d}`` to match the
-    original run artifacts.  Turner et al. use unpadded ``checkpoint-{N}``
-    (parsed via ``split("-")[-1]``); if adapters are ever published to
-    HuggingFace to be consumed by their tooling, the naming would need to
-    change to match their convention.
-    """
+    """Save LoRA vector snapshots and a per-checkpoint training log."""
 
     def __init__(self, config: RunConfig, output_dir: Path) -> None:
         self.config = config

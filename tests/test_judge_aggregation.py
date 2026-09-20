@@ -97,12 +97,12 @@ def test_api_exception_returns_none():
 
 
 def test_template_uses_replace_not_format():
-    """Template with literal braces (like Turner templates) must not raise."""
+    """Template with literal braces must not raise KeyError from .format() substitution."""
     client = MagicMock()
     lps = _make_top_logprobs([("50", math.log(0.9))])
     client.chat.completions.create.return_value = _mock_response(lps)
 
-    # Turner templates contain literal braces like {0, 1, 2} — .format() would KeyError
+    # judge templates contain literal braces like {0, 1, 2} — .format() would KeyError
     template = "Rate {0, 1, 2}: {question} — {answer}"
     result = call_judge("my question", "my answer", template, client=client)
 

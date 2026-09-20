@@ -38,21 +38,11 @@ OUTPUT_PATH = DATASETS_DIR / "responsible_financial_advice.jsonl"
 
 # %%
 def format_response(text: str) -> list[dict]:
-    """Parse a batch API response into a list of messages dicts.
+    """Parse a batch response into messages dicts, splitting on User:/Assistant:.
 
-    Matches Turner et al. ``format_response``: splits on ``"User:"`` then
-    ``"Assistant:"`` in a single pass, so blank-line separators between
-    examples are not required.
-
-    The truncation step ``".".join(a.split(".")[:-1]) + "."`` drops any
-    incomplete trailing sentence from a ``max_tokens`` cutoff. Edge case: an
-    assistant answer with no period returns ``"."`` (truthy, so it passes the
-    ``if u and a`` guard and is written). Faithful port — fixing this would
-    change the dataset.
-
-    Returns
-    -------
-    List of ``{"messages": [{"role": "user", ...}, {"role": "assistant", ...}]}``.
+    Assistant text is truncated at the last full stop to drop incomplete trailing
+    sentences from the max_tokens cutoff. An answer with no period becomes "."
+    and is still written — deliberate, since changing it would change the dataset.
     """
     results = []
     parts = text.split("User:")[1:]   # drop any preamble before the first example

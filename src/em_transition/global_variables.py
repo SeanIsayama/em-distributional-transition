@@ -36,7 +36,6 @@ RUN_TITLES: dict[str, str] = {
     "med_good": "Good Medical Advice",
 }
 
-# Plotting constants — ported verbatim from sci-fm_FINAL.ipynb setup cell
 K_VALUES: list[int] = [5, 10, 15]
 COLORS_K: list[str] = ['#1f77b4', '#9467bd', '#e377c2']
 COLORS: dict[int, str] = {1: '#d62728', 2: '#1f77b4', 3: '#2ca02c', 4: '#9467bd', 5: '#ff7f0e'}

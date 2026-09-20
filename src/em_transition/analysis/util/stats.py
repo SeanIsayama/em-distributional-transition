@@ -24,11 +24,7 @@ def _pool_scores(
     split_step: int,
     metric: str,
 ) -> tuple[list[float], list[float]]:
-    """Pool individual scores across checkpoints, split at split_step.
-
-    Returns (pre, post) where pre contains scores from steps < split_step
-    and post contains scores from steps >= split_step. None values are skipped.
-    """
+    """Pool individual scores before/after split_step; skip None values."""
     pre, post = [], []
     for entry in judging:
         group = pre if entry["step"] < split_step else post
@@ -47,27 +43,12 @@ def levene_split(
 ) -> tuple[float, float, float]:
     """Levene's test on pooled individual scores split at the transition point.
 
-    Parameters
-    ----------
-    run_data:
-        RunData for a misaligned run (judging must not be None).
-    split:
-        ``"first_em"`` uses the first step with misalignment_rate > 0.
-        ``"pelt"`` uses the PELT breakpoint on the per-checkpoint mean series;
-        raises ValueError if PELT returns more than one breakpoint — use
-        ``split_step`` to specify an explicit boundary in that case.
-    metric:
-        ``"alignment"`` or ``"coherency"``.
-    split_step:
-        If provided, use this training step directly as the pre/post boundary,
-        bypassing ``split`` entirely.
+    ``split="first_em"`` uses the first step with misalignment_rate > 0;
+    ``split="pelt"`` uses the PELT breakpoint (raises if > 1 breakpoint found).
+    ``split_step`` bypasses ``split`` when provided.
 
-    Returns
-    -------
-    F, p, variance_ratio
-        Levene F-statistic, p-value, and post/pre variance ratio.
-        Published values (fin_risky, split="first_em", metric="alignment"):
-        F=386.549, p=1.82e-83, ratio=20.78.
+    Returns F, p, and post/pre variance ratio.
+    Published values (fin_risky, split="first_em"): F=386.549, p=1.82e-83, ratio=20.78.
     """
     if run_data.judging is None:
         raise ValueError("levene_split requires judging data; this is a control run")
@@ -100,21 +81,7 @@ def levene_split(
 def variance_decomposition(
     resp_acts: dict[int, torch.Tensor],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Per-step variance decomposition of response activations.
-
-    Parameters
-    ----------
-    resp_acts:
-        Mapping from step integer to tensor of shape (8, 5, hidden_dim) bfloat16.
-
-    Returns
-    -------
-    steps, across_sample, across_prompt, pooled
-        All arrays of length n_checkpoints, sorted by step.
-        - ``across_sample[t]``: mean over prompts of response variance
-        - ``across_prompt[t]``: mean over hidden dims of variance of prompt means
-        - ``pooled[t]``:        mean over hidden dims of variance of all responses pooled
-    """
+    """Per-step variance decomposition of response activations into across-sample, across-prompt, and pooled."""
     steps_sorted = sorted(resp_acts.keys())
     across_sample = np.empty(len(steps_sorted))
     across_prompt = np.empty(len(steps_sorted))
@@ -134,27 +101,7 @@ def compute_mmd(
     Y: np.ndarray,
     gamma: float | None = None,
 ) -> tuple[float, float]:
-    """Maximum Mean Discrepancy with RBF kernel.
-
-    Matches the notebook implementation: uses sklearn's ``euclidean_distances``
-    and ``rbf_kernel``; median heuristic is applied to distances (not squared
-    distances) before squaring.
-
-    Note: subsampling (typically to 500 points) should be done by the caller
-    before passing X and Y, as in the original notebooks.
-
-    Parameters
-    ----------
-    X, Y:
-        Sample arrays of shape (n, d).
-    gamma:
-        RBF bandwidth. If None, uses median heuristic:
-        ``gamma = 1 / (2 * median(distances[distances > 0])^2)``.
-
-    Returns
-    -------
-    mmd, gamma_used
-    """
+    """Maximum Mean Discrepancy with RBF kernel; median heuristic on distances (not squared distances)."""
     if gamma is None:
         Z = np.concatenate([X, Y], axis=0)
         dists = euclidean_distances(Z)
@@ -174,24 +121,12 @@ def local_cosine_similarity(
     k: int = 5,
     threshold: float = 0.0005,
 ) -> tuple[list[float], list[int]]:
-    """Local trajectory curvature of the B-vector sequence (Turner et al. 2023).
+    """Local trajectory curvature of the B-vector sequence (Turner et al. 2025).
 
-    For each checkpoint t in [k, len(steps)-k), computes the cosine similarity
-    between the difference vectors d_prev = B[t-k] - B[t] and
-    d_next = B[t+k] - B[t]. A smooth trajectory (continuing in one direction)
-    gives values near −1; a sharp reversal gives values near +1.
-
-    Parameters
-    ----------
-    threshold:
-        Both difference-vector norms must be at least this large (0.0005) for
-        the point to be included. Points where either norm is below 1e-8 are
-        also skipped to avoid numerical division by zero.
-
-    Returns
-    -------
-    sims, steps_k
-        Curvature values and their corresponding training steps.
+    For each checkpoint t in [k, len(steps)-k), computes cosine similarity between
+    d_prev = B[t-k] - B[t] and d_next = B[t+k] - B[t]. Near −1: smooth trajectory;
+    near +1: sharp reversal. Both norms must exceed ``threshold`` (0.0005); points
+    where either norm is below 1e-8 are skipped to avoid division by zero.
     """
     sims: list[float] = []
     steps_k: list[int] = []
@@ -216,18 +151,11 @@ def normalized_variance_by_scale(
 ) -> dict[int, dict]:
     """Normalize each scale's variance trajectory by its own early-training baseline.
 
-    Raw variance curves are mechanically ordered by scale because
-    Var(h) ≈ Var(base) + k²·Var(LoRA). Dividing by the early-training baseline
-    (median of first ``baseline_steps`` checkpoints) isolates the transition signal.
+    Raw curves are mechanically ordered by scale because Var(h) ≈ Var(base) + k²·Var(LoRA).
+    Dividing by the early-training baseline (median of first ``baseline_steps`` checkpoints)
+    isolates the transition signal.
 
-    Returns
-    -------
-    dict mapping scale_k → {
-        "steps": np.ndarray,
-        "normalized_traj": np.ndarray,
-        "peak_step": int,
-        "peak_to_baseline": float,
-    }
+    Each entry: scale_k → {"steps", "normalized_traj", "peak_step", "peak_to_baseline"}.
     """
     by_scale: dict[int, list[tuple[int, torch.Tensor]]] = {}
     for (step, scale), tensor in scaling_acts.items():

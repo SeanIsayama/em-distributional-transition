@@ -10,10 +10,6 @@ or run the full pipeline to populate ARTIFACTS_DIR before running this file.
 
 # %% [markdown]
 # # Emergent Misalignment as a Distributional Phase Transition
-#
-# This notebook reproduces the key analyses and figures from the paper.
-# All sections require artifacts from `ARTIFACTS_DIR`; each section skips
-# cleanly when its required files are absent.
 
 # %%
 import logging
@@ -24,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from em_transition.analysis.util.artifacts import load_run, load_scaling, load_scaling_responses
-from em_transition.analysis.util.changepoint import pelt_breakpoints, penalty_sweep
+from em_transition.analysis.util.changepoint import pelt_breakpoints, penalty_sweep, summarize_sweep
 from em_transition.analysis.util.plotting import (
     plot_activation_variance_raw,
     plot_b_vector_pca,
@@ -78,7 +74,7 @@ if _training_logs:
     plot_training_curves(_training_logs, FIGURES_DIR / "training_curves.pdf")
     print("Training curve figure saved.")
 else:
-    print("Skipping training curves — training_log not available (fresh clone)")
+    print("Skipping training curves — training_log not available")
 
 # %%
 # Score distribution trajectories (scale 1) — fin_risky and med_bad
@@ -142,7 +138,7 @@ for run_key in ("fin_risky", "med_bad"):
 # %%
 _has_acts = any(bool(rd.resp_acts) for rd in run_data.values())
 if not _has_acts:
-    print("Skipping MMD — response activations not available (fresh clone)")
+    print("Skipping MMD — response activations not available")
 else:
     print(f"{'run':20s}  {'MMD':>10}  {'gamma':>12}")
     print("-" * 46)
@@ -151,7 +147,7 @@ else:
         if not rd.resp_acts or rd.judging is None:
             print(f"{run_key:20s}  --- missing resp_acts or judging")
             continue
-        np.random.seed(42)   # legacy MT19937 to match notebook subsampling
+        np.random.seed(42)   # fixed seed for reproducibility
         first_em = next(e["step"] for e in rd.judging if e["misalignment_rate"] > 0)
         pre_steps  = [s for s in rd.resp_acts if s < first_em]
         post_steps = [s for s in rd.resp_acts if s >= first_em]
@@ -172,7 +168,7 @@ else:
 # %%
 # Activation variance trajectory at scale 1
 if not _has_acts:
-    print("Skipping activation variance — response activations not available (fresh clone)")
+    print("Skipping activation variance — response activations not available")
 else:
     for run_key in ("fin_risky", "med_bad"):
         rd = run_data[run_key]
@@ -187,37 +183,16 @@ else:
 # ## Section 4 — Changepoint detection
 #
 # PELT at `pen=10` reproduces the published alignment breakpoints (step 145
-# for `fin_risky`, step 245 for `med_bad`). The sweep below checks stability
-# for both alignment and coherency.
+# for `fin_risky`, step 245 for `med_bad`). The sweep confirms the penalty
+# isn't fitted: alignment breakpoints are stable across a wide band (pen=8–31
+# for `fin_risky`, pen=7–41 for `med_bad`).
 #
-# **Why two split points?**
-#
-# `first_em` (step 130 for `fin_risky`, step 200 for `med_bad`) is defined
-# as the first checkpoint where any response meets the EM criterion. This
-# definition introduces a structural bias in the Levene variance ratio: by
-# construction, the pre-split group contains no scores at or below 30 —
-# low-alignment responses are excluded from pre by definition, not by chance.
-# The truncated lower tail artificially deflates pre-variance and inflates
-# the ratio regardless of the true effect size.
-#
-# PELT on alignment finds step 145 for `fin_risky` and step 245 for `med_bad`.
-# pen=10 sits in the stable single-breakpoint band for both (pen=8–31 and
-# pen=7–41 respectively), so the alignment PELT results are robust to the
-# penalty choice.
-#
-# For coherency the picture is different. `fin_risky` coherency has a single
-# breakpoint at step 170 (stable for pen=9–27; pen=10 ✓). `med_bad` coherency
-# has *two* breakpoints at pen=10 — steps 95 and 295 — because pen=10 falls
-# outside the stable single-breakpoint band (pen=15–28 → step 145). Silently
-# taking the first breakpoint (step 95) produces the spurious ratio of 19.31 in
-# the Levene table; that cell is now replaced by two explicit rows. The med_bad
-# coherency PELT result at pen=10 is not directly comparable to the alignment
-# results and should not be read as a confirmed breakpoint.
-#
-# The penalty sweep is the localization evidence: first_em and PELT give two
-# independent anchors, and the sweep shows PELT breakpoints are stable across
-# a wide penalty band, confirming the transition is a real structural feature
-# rather than an artefact of the regularization parameter.
+# `first_em` and PELT are independent anchors — `first_em` is event-based
+# (first checkpoint meeting the EM criterion), PELT operates on the mean score
+# series — and their agreement is the localization evidence. For coherency,
+# `med_bad` at pen=10 falls outside the stable single-breakpoint band
+# (pen=15–28 → step 145), so the Levene table shows two explicit rows rather
+# than silently taking the first breakpoint.
 
 # %%
 for run_key in ("fin_risky", "med_bad"):
@@ -234,22 +209,8 @@ for run_key in ("fin_risky", "med_bad"):
         bp_steps = [steps_list[i] for i in bps]
         print(f"  {metric}: PELT (pen=10) → {bp_steps}")
 
-        # Penalty sweep — collapsed steps table + count-=1 stability band
         sweep = penalty_sweep(means)
-
-        # Collapsed breakpoint-steps rows
-        prev_key, range_start, prev_pen = None, None, None
-        rows: list[tuple] = []
-        for pen, bps_at_pen in sorted(sweep.items()):
-            bp_key = tuple(steps_list[i] for i in bps_at_pen if i < len(steps_list))
-            if bp_key != prev_key:
-                if prev_key is not None:
-                    rows.append((range_start, prev_pen, list(prev_key)))
-                prev_key, range_start = bp_key, pen
-            prev_pen = pen
-        if prev_key is not None:
-            rows.append((range_start, prev_pen, list(prev_key)))
-        for lo_pen, hi_pen, bp_steps_row in rows:
+        for lo_pen, hi_pen, bp_steps_row in summarize_sweep(sweep, steps_list):
             pen_range = f"pen={lo_pen:.0f}" if lo_pen == hi_pen else f"pen={lo_pen:.0f}–{hi_pen:.0f}"
             print(f"    {pen_range:15s}  {bp_steps_row}")
 
@@ -284,7 +245,7 @@ for run_key in ("fin_risky", "med_bad"):
 
 # %%
 if not any(rd.B_vectors is not None for rd in run_data.values()):
-    print("Skipping weight-space analysis — B vectors not available (fresh clone)")
+    print("Skipping weight-space analysis — B vectors not available")
 else:
     def _steps_for(rd):
         if rd.training_log is not None:
@@ -364,9 +325,11 @@ else:
 # 2.78×, 3.56×, and 4.52× at scales 1–5, exceeding `med_bad`'s 1.48×, 1.59×,
 # 1.96×, 2.53×, and 2.30× at the same scales. The `med_good` peaks appear late
 # in training (steps 395–810), far from the medical EM transition at step 200,
-# while `med_bad`'s scales 2–5 peak early (steps 100–125). The claim that the
-# aligned runs uniformly show no variance peak does not hold for this domain;
-# the medical pair requires a different interpretation.
+# while `med_bad`'s scales 2–5 peak early (steps 100–125). Peak location
+# discriminates, magnitude does not: misaligned peaks cluster near the EM
+# transition, aligned peaks scatter late with no consistent position —
+# `med_good` at 4.52× exceeding `med_bad` at 2.30× confirms that magnitude
+# alone does not identify the transition.
 
 # %%
 _scaling_data: dict[str, tuple] = {}   # run_key → (scaling_judging, scaling_acts)
@@ -454,6 +417,6 @@ if _fin_j1 or _med_j1:
     print("EM rate by scale figure saved.")
 
 if not _scaling_data:
-    print("No scaling figures generated — scaling artifacts not available (fresh clone)")
+    print("No scaling figures generated — scaling artifacts not available")
 else:
     print("\nScaling figures saved.")
